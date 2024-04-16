@@ -134,11 +134,11 @@ class ResNet(nn.Module):
         # self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # self.fc = nn.Linear(512 * block.expansion * width_mult, num_classes)
 
-        self.upconv1 = nn.ConvTranspose2d(512 * block.expansion * width_mult, 256, kernel_size=2, stride=2)
-        self.upconv2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
-        self.upconv3 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
-        self.upconv4 = nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2)
-        self.conv_final = nn.Conv2d(32, 1, kernel_size=1)  # Output for binary segmentation
+        self.upconv1 = nn.ConvTranspose2d(512 * block.expansion, 256, kernel_size=3, stride=2, padding=1, output_padding=1)
+        self.upconv2 = nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1)
+        self.upconv3 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, output_padding=1)
+        self.upconv4 = nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1)
+        self.conv_final = nn.Conv2d(32, 1, kernel_size=1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):

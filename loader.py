@@ -41,3 +41,6 @@ class H5ImageLoader():
             labels = None
 
         return images, labels
+
+    def __len__(self):
+        return self.num_batches

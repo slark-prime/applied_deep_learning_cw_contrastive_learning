@@ -1,16 +1,18 @@
 import os
-
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from dataset import prepare_dataset
 from Resnet import resnet50x1
 import torch.optim as optim
-
+import torch.nn.functional as F
 from loader import H5ImageLoader
 
 DATA_PATH = './data'
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+# Ensure the directory for saving images exists
+image_save_dir = './segmentation_results'
+os.makedirs(image_save_dir, exist_ok=True)
 
 class DiceLoss(nn.Module):
     def __init__(self, eps=1e-7):
@@ -18,22 +20,17 @@ class DiceLoss(nn.Module):
         self.eps = eps
 
     def forward(self, ps, ts):
-        # Convert predictions to probabilities and then to binary format
-        ps = torch.sigmoid(ps)
-        # ps = (ps > 0.5).float()
+        ps = torch.sigmoid(ps)  # Ensure predictions are in [0,1]
+        ts = ts.float()  # Ensure targets are float for calculation
 
-        # Ensure ts is a float tensor
-        ts = ts.float()
-
-        # Check and adjust dimensions if necessary
         if ps.shape != ts.shape:
             raise ValueError(f"Prediction shape {ps.shape} and target shape {ts.shape} do not match.")
 
         intersection = torch.sum(ts * ps, dim=(1, 2, 3))
         total = torch.sum(ts, dim=(1, 2, 3)) + torch.sum(ps, dim=(1, 2, 3))
-        dice_score = (2 * intersection + self.eps) / (total + self.eps)
+        dice_score = (2. * intersection + self.eps) / (total + self.eps)
 
-        return 1 - dice_score.mean()  # Average over the batch
+        return 1 - dice_score.mean()  # Return 1 - Dice to define loss
 
 
 def main():
@@ -62,7 +59,7 @@ def main():
     learning_rate = 1e-4
     num_epochs = 2
     criterion = DiceLoss()
-    save_path = "results_pt"
+    save_path = "/content/drive/MyDrive/ADL/results_pt"
 
     if not os.path.exists(save_path):
         os.makedirs(save_path)
@@ -92,9 +89,8 @@ def main():
             # print(f"Masks shape (after unsqueeze if applied): {masks.shape}")
 
             # Ensure output dimensions match mask dimensions for height and width
-            if outputs.shape[2:] != masks.shape[2:]:
-                outputs = torch.nn.functional.interpolate(outputs, size=masks.shape[2:], mode='bilinear',
-                                                          align_corners=False)
+            if outputs.shape[2:] != masks.shape[2:]:  # Ensure this references only spatial dimensions
+                outputs = F.interpolate(outputs, size=masks.shape[2:], mode='bilinear', align_corners=False)
 
             assert outputs.shape == masks.shape, f"Output shape {outputs.shape} doesn't match mask shape {masks.shape}"
             loss = criterion(outputs, masks)
@@ -110,11 +106,41 @@ def main():
         model.eval()
         with torch.no_grad():
             val_loss = 0
-            for images, masks in loader_val:
+            for batch_idx, (images, masks) in enumerate(loader_val):
                 images, masks = images.to(device), masks.to(device)
+
+                if masks.dim() == 3:
+                    masks = masks.unsqueeze(1)  # Converts [N, H, W] to [N, 1, H, W]
+
                 outputs = model(images)
+                if outputs.shape[2:] != masks.shape[2:]:
+                    outputs = F.interpolate(outputs, size=masks.shape[2:], mode='bilinear', align_corners=False)
+
+                assert outputs.shape == masks.shape, f"Output shape {outputs.shape} doesn't match mask shape {masks.shape}"
                 loss = criterion(outputs, masks)
                 val_loss += loss.item()
+
+                # Save images every 10 batches
+                if batch_idx % 50 == 0:
+                    for i in range(images.size(0)):  # Iterate through each image in the batch
+                        fig, ax = plt.subplots(1, 3, figsize=(12, 4))
+                        ax[0].imshow(images[i].cpu().permute(1, 2, 0).numpy())
+                        ax[0].set_title('Original Image')
+                        ax[0].axis('off')
+
+                        ax[1].imshow(masks[i].cpu().squeeze().numpy(), cmap='gray')
+                        ax[1].set_title('True Mask')
+                        ax[1].axis('off')
+
+                        ax[2].imshow(outputs[i].cpu().detach().squeeze().numpy(), cmap='gray')
+                        ax[2].set_title('Predicted Mask')
+                        ax[2].axis('off')
+
+                        plt.tight_layout()
+                        filename = f'epoch_{epoch+1}_batch_{batch_idx}_image_{i}.png'
+                        plt.savefig(os.path.join(image_save_dir, filename))
+                        plt.close(fig)  # Close the figure to free memory
+
             avg_val_loss = val_loss / len(loader_val)
             print(f'Validation Loss: {avg_val_loss:.4f}')
 
