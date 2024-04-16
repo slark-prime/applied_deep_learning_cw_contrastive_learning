@@ -14,6 +14,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 image_save_dir = './segmentation_results'
 os.makedirs(image_save_dir, exist_ok=True)
 
+
+
 class DiceLoss(nn.Module):
     def __init__(self, eps=1e-7):
         super(DiceLoss, self).__init__()
@@ -57,7 +59,7 @@ def main():
     ## Training parameters
     minibatch_size = 4
     learning_rate = 1e-4
-    num_epochs = 2
+    num_epochs = 100
     criterion = DiceLoss()
     save_path = "/content/drive/MyDrive/ADL/results_pt"
 
@@ -77,7 +79,7 @@ def main():
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0
-        for images, masks in loader_train:
+        for batch_index, (images, masks) in enumerate(loader_train):
             images, masks = images.to(device), masks.to(device)
             outputs = model(images)
 
@@ -98,6 +100,14 @@ def main():
             optimizer.step()
             optimizer.zero_grad()
             total_loss += loss.item()
+
+            # Print pixel values for debugging
+            if batch_index % 200 == 0:  # Adjust the frequency of printing as needed
+                print(f'Epoch {epoch+1}, Batch {batch_index}')
+                print('Sample Image Pixel Values:', images[0, :, :5, :5].cpu().detach().numpy())
+                print('Sample Mask Pixel Values:', masks[0, :, :5, :5].cpu().detach().numpy())
+                print('Sample Output Pixel Values:', outputs[0, :, :5, :5].cpu().detach().sigmoid().numpy())
+
 
         avg_loss = total_loss / len(loader_train)
         print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {avg_loss:.4f}')
@@ -120,46 +130,28 @@ def main():
                 loss = criterion(outputs, masks)
                 val_loss += loss.item()
 
-                with torch.no_grad():
-                    val_loss = 0
-                    for batch_idx, (images, masks) in enumerate(loader_val):
-                        images, masks = images.to(device), masks.to(device)
+                # Save images every 10 batches
+                if batch_idx % 200 == 0:  # Adjust the frequency of saving images as needed
+                    for i in range(min(images.size(0), 4)):  # Save up to 4 images per batch
+                        fig, ax = plt.subplots(1, 3, figsize=(12, 4))
+                        ax[0].imshow(images[i].cpu().permute(1, 2, 0).numpy())
+                        ax[0].set_title('Original Image')
+                        ax[0].axis('off')
 
-                        if masks.dim() == 3:
-                            masks = masks.unsqueeze(1)  # Converts [N, H, W] to [N, 1, H, W]
+                        ax[1].imshow(masks[i].cpu().squeeze().numpy(), cmap='gray')
+                        ax[1].set_title('True Mask')
+                        ax[1].axis('off')
 
-                        outputs = model(images)
-                        if outputs.shape[2:] != masks.shape[2:]:
-                            outputs = F.interpolate(outputs, size=masks.shape[2:], mode='bilinear', align_corners=False)
+                        output = outputs[i].cpu().detach().squeeze().numpy()
+                        ax[2].imshow(output, cmap='gray', vmin=0, vmax=1)  # Ensure correct visualization range
+                        ax[2].set_title('Predicted Mask')
+                        ax[2].axis('off')
 
-                        assert outputs.shape == masks.shape, f"Output shape {outputs.shape} doesn't match mask shape {masks.shape}"
-                        loss = criterion(outputs, masks)
-                        val_loss += loss.item()
+                        plt.tight_layout()
+                        filename = f'epoch_{epoch+1}_batch_{batch_idx}_image_{i}.png'
+                        fig.savefig(os.path.join(image_save_dir, filename))
+                        plt.close(fig)  # Close the figure to free memory
 
-                        # Save images every 10 batches
-                        if batch_idx % 200 == 0:  # Adjust the frequency of saving images as needed
-                            for i in range(min(images.size(0), 4)):  # Save up to 4 images per batch
-                                fig, ax = plt.subplots(1, 3, figsize=(12, 4))
-                                ax[0].imshow(images[i].cpu().permute(1, 2, 0).numpy())
-                                ax[0].set_title('Original Image')
-                                ax[0].axis('off')
-
-                                ax[1].imshow(masks[i].cpu().squeeze().numpy(), cmap='gray')
-                                ax[1].set_title('True Mask')
-                                ax[1].axis('off')
-
-                                output = outputs[i].cpu().detach().squeeze().numpy()
-                                ax[2].imshow(output, cmap='gray', vmin=0, vmax=1)  # Ensure correct visualization range
-                                ax[2].set_title('Predicted Mask')
-                                ax[2].axis('off')
-
-                                plt.tight_layout()
-                                filename = f'epoch_{epoch + 1}_batch_{batch_idx}_image_{i}.png'
-                                fig.savefig(os.path.join(image_save_dir, filename))
-                                plt.close(fig)  # Close the figure to free memory
-
-                    avg_val_loss = val_loss / len(loader_val)
-                    print(f'Validation Loss: {avg_val_loss:.4f}')
             avg_val_loss = val_loss / len(loader_val)
             print(f'Validation Loss: {avg_val_loss:.4f}')
 
