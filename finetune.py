@@ -34,6 +34,17 @@ class DiceLoss(nn.Module):
 
         return 1 - dice_score.mean()  # Return 1 - Dice to define loss
 
+def pre_process(images, labels):
+    # Convert images to PyTorch tensors and permute dimensions to [C, H, W]
+    images = torch.stack([torch.tensor(img).permute(2, 0, 1).float() for img in images])
+
+    # Ensure labels are also tensors; handle None and list of labels appropriately
+    if labels is not None:
+        labels = torch.stack([torch.tensor(lbl).long() for lbl in labels])
+    else:
+        labels = None  # Maintain None if no labels are present
+
+    return images, labels
 
 def main():
     # Prepare the dataset
@@ -79,7 +90,12 @@ def main():
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0
+
+        for param in model.parameters():
+            param.requires_grad_(True)
+
         for batch_index, (images, masks) in enumerate(loader_train):
+            images, masks = pre_process(images, masks)
             images, masks = images.to(device), masks.to(device)
             outputs = model(images)
 
@@ -102,7 +118,7 @@ def main():
             total_loss += loss.item()
 
             # Print pixel values for debugging
-            if batch_index % 200 == 0:  # Adjust the frequency of printing as needed
+            if batch_index % 1000 == 0:  # Adjust the frequency of printing as needed
                 print(f'Epoch {epoch+1}, Batch {batch_index}')
                 print('Sample Image Pixel Values:', images[0, :, :5, :5].cpu().detach().numpy())
                 print('Sample Mask Pixel Values:', masks[0, :, :5, :5].cpu().detach().numpy())
@@ -117,6 +133,7 @@ def main():
         with torch.no_grad():
             val_loss = 0
             for batch_idx, (images, masks) in enumerate(loader_val):
+                images, masks = pre_process(images, masks)
                 images, masks = images.to(device), masks.to(device)
 
                 if masks.dim() == 3:
