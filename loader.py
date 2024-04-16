@@ -26,19 +26,15 @@ class H5ImageLoader():
         return self
 
     def __next__(self):
+        self.batch_idx += 1
+        batch_img_ids = self.img_ids[self.batch_idx * self.batch_size:(self.batch_idx + 1) * self.batch_size]
+        datasets = [self.dataset_list[idx] for idx in batch_img_ids]
+
         if self.batch_idx >= self.num_batches:
             raise StopIteration
 
-        batch_img_ids = self.img_ids[self.batch_idx * self.batch_size:(self.batch_idx + 1) * self.batch_size]
-        datasets = [self.dataset_list[idx] for idx in batch_img_ids]
-        self.batch_idx += 1
-
-        images = torch.stack(
-            [torch.tensor(self.img_h5[ds][()]).permute(2, 0, 1).float() for ds in datasets])  # Convert and permute
-        if self.seg_h5:
-            labels = torch.stack([torch.tensor(self.seg_h5[ds][()]).long() for ds in datasets])
-        else:
-            labels = None
+        images = [self.img_h5[ds][()] for ds in datasets]
+        labels = None if (self.seg_h5 is None) else [self.seg_h5[ds][()] == 1 for ds in datasets]  # foreground only
 
         return images, labels
 

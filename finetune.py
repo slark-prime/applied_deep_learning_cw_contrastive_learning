@@ -34,6 +34,7 @@ class DiceLoss(nn.Module):
 
         return 1 - dice_score.mean()  # Return 1 - Dice to define loss
 
+
 def pre_process(images, labels):
     # Convert images to PyTorch tensors and permute dimensions to [C, H, W]
     images = torch.stack([torch.tensor(img).permute(2, 0, 1).float() for img in images])
