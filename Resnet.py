@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
@@ -195,8 +196,7 @@ class ResNet(nn.Module):
 
         x = self.upconv(x)
         x = self.conv_final(x)
-        return x
-
+        return torch.sigmoid(x)
 
     def forward(self, x):
         return self._forward_impl(x)
@@ -204,6 +204,7 @@ class ResNet(nn.Module):
 
 def resnet50x1(**kwargs):
     return ResNet(Bottleneck, [3, 4, 6, 3], width_mult=1)
+
 
 def resnet50x2(**kwargs):
     return ResNet(Bottleneck, [3, 4, 6, 3], width_mult=2)
