@@ -120,27 +120,46 @@ def main():
                 loss = criterion(outputs, masks)
                 val_loss += loss.item()
 
-                # Save images every 10 batches
-                if batch_idx % 50 == 0:
-                    for i in range(images.size(0)):  # Iterate through each image in the batch
-                        fig, ax = plt.subplots(1, 3, figsize=(12, 4))
-                        ax[0].imshow(images[i].cpu().permute(1, 2, 0).numpy())
-                        ax[0].set_title('Original Image')
-                        ax[0].axis('off')
+                with torch.no_grad():
+                    val_loss = 0
+                    for batch_idx, (images, masks) in enumerate(loader_val):
+                        images, masks = images.to(device), masks.to(device)
 
-                        ax[1].imshow(masks[i].cpu().squeeze().numpy(), cmap='gray')
-                        ax[1].set_title('True Mask')
-                        ax[1].axis('off')
+                        if masks.dim() == 3:
+                            masks = masks.unsqueeze(1)  # Converts [N, H, W] to [N, 1, H, W]
 
-                        ax[2].imshow(outputs[i].cpu().detach().squeeze().numpy(), cmap='gray')
-                        ax[2].set_title('Predicted Mask')
-                        ax[2].axis('off')
+                        outputs = model(images)
+                        if outputs.shape[2:] != masks.shape[2:]:
+                            outputs = F.interpolate(outputs, size=masks.shape[2:], mode='bilinear', align_corners=False)
 
-                        plt.tight_layout()
-                        filename = f'epoch_{epoch+1}_batch_{batch_idx}_image_{i}.png'
-                        plt.savefig(os.path.join(image_save_dir, filename))
-                        plt.close(fig)  # Close the figure to free memory
+                        assert outputs.shape == masks.shape, f"Output shape {outputs.shape} doesn't match mask shape {masks.shape}"
+                        loss = criterion(outputs, masks)
+                        val_loss += loss.item()
 
+                        # Save images every 10 batches
+                        if batch_idx % 200 == 0:  # Adjust the frequency of saving images as needed
+                            for i in range(min(images.size(0), 4)):  # Save up to 4 images per batch
+                                fig, ax = plt.subplots(1, 3, figsize=(12, 4))
+                                ax[0].imshow(images[i].cpu().permute(1, 2, 0).numpy())
+                                ax[0].set_title('Original Image')
+                                ax[0].axis('off')
+
+                                ax[1].imshow(masks[i].cpu().squeeze().numpy(), cmap='gray')
+                                ax[1].set_title('True Mask')
+                                ax[1].axis('off')
+
+                                output = outputs[i].cpu().detach().squeeze().numpy()
+                                ax[2].imshow(output, cmap='gray', vmin=0, vmax=1)  # Ensure correct visualization range
+                                ax[2].set_title('Predicted Mask')
+                                ax[2].axis('off')
+
+                                plt.tight_layout()
+                                filename = f'epoch_{epoch + 1}_batch_{batch_idx}_image_{i}.png'
+                                fig.savefig(os.path.join(image_save_dir, filename))
+                                plt.close(fig)  # Close the figure to free memory
+
+                    avg_val_loss = val_loss / len(loader_val)
+                    print(f'Validation Loss: {avg_val_loss:.4f}')
             avg_val_loss = val_loss / len(loader_val)
             print(f'Validation Loss: {avg_val_loss:.4f}')
 
