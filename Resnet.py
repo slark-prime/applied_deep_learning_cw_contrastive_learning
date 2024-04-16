@@ -193,8 +193,6 @@ class ResNet(nn.Module):
 
         x = self.upconv1(x)
         x = self.upconv2(x)
-        x = self.upconv3(x)
-        x = self.upconv4(x)
         x = self.conv_final(x)
         return torch.sigmoid(x)
 
