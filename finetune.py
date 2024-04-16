@@ -17,27 +17,23 @@ class DiceLoss(nn.Module):
         super(DiceLoss, self).__init__()
         self.eps = eps
 
-    def dice_score(self, ps, ts):
-        """
-        Compute the Dice score, a measure of overlap between two sets.
-        """
-        numerator = torch.sum(ts * ps, dim=(1, 2, 3)) * 2 + self.eps
-        denominator = torch.sum(ts, dim=(1, 2, 3)) + torch.sum(ps, dim=(1, 2, 3)) + self.eps
-        return numerator / denominator
-
     def forward(self, ps, ts):
-        """
-        Compute the Dice loss, which is -1 times the Dice score.
-        """
-        return -self.dice_score(ps, ts)
+        # Convert predictions to probabilities and then to binary format
+        ps = torch.sigmoid(ps)
+        # ps = (ps > 0.5).float()
 
-    def dice_binary(self, ps, ts):
-        """
-        Threshold predictions and true values at 0.5, convert to float, and compute the Dice score.
-        """
-        ps = (ps >= 0.5).float()
-        ts = (ts >= 0.5).float()
-        return self.dice_score(ps, ts)
+        # Ensure ts is a float tensor
+        ts = ts.float()
+
+        # Check and adjust dimensions if necessary
+        if ps.shape != ts.shape:
+            raise ValueError(f"Prediction shape {ps.shape} and target shape {ts.shape} do not match.")
+
+        intersection = torch.sum(ts * ps, dim=(1, 2, 3))
+        total = torch.sum(ts, dim=(1, 2, 3)) + torch.sum(ps, dim=(1, 2, 3))
+        dice_score = (2 * intersection + self.eps) / (total + self.eps)
+
+        return 1 - dice_score.mean()  # Average over the batch
 
 
 def main():
@@ -59,8 +55,7 @@ def main():
             if module.bias is not None:
                 nn.init.constant_(module.bias, 0)
 
-    model.conv_final.apply(initialize_weights)
-    model.upconv.apply(initialize_weights)
+    model.apply(initialize_weights)
 
     ## Training parameters
     minibatch_size = 4
@@ -75,7 +70,7 @@ def main():
     ## Data loader
     loader_train = H5ImageLoader(DATA_PATH + '/images_train.h5', minibatch_size, DATA_PATH + '/labels_train.h5')
     loader_val = H5ImageLoader(DATA_PATH + '/images_val.h5', 20, DATA_PATH + '/labels_val.h5')
-    loader_test = H5ImageLoader(DATA_PATH + '/images_test.h5', 20, DATA_PATH + '/labels_test.h5')
+    # loader_test = H5ImageLoader(DATA_PATH + '/images_test.h5', 20, DATA_PATH + '/labels_test.h5')
 
     model.to(device)
     criterion = DiceLoss()
@@ -87,11 +82,25 @@ def main():
         total_loss = 0
         for images, masks in loader_train:
             images, masks = images.to(device), masks.to(device)
-            optimizer.zero_grad()
             outputs = model(images)
+
+            # Add a channel dimension to masks if it's missing
+            if masks.dim() == 3:
+                masks = masks.unsqueeze(1)  # Converts [N, H, W] to [N, 1, H, W]
+
+            # print(f"Outputs shape: {outputs.shape}")
+            # print(f"Masks shape (after unsqueeze if applied): {masks.shape}")
+
+            # Ensure output dimensions match mask dimensions for height and width
+            if outputs.shape[2:] != masks.shape[2:]:
+                outputs = torch.nn.functional.interpolate(outputs, size=masks.shape[2:], mode='bilinear',
+                                                          align_corners=False)
+
+            assert outputs.shape == masks.shape, f"Output shape {outputs.shape} doesn't match mask shape {masks.shape}"
             loss = criterion(outputs, masks)
             loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
             total_loss += loss.item()
 
         avg_loss = total_loss / len(loader_train)
