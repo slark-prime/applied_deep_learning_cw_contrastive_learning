@@ -120,6 +120,19 @@ class Bottleneck(nn.Module):
         return out
 
 
+class UNetBlock(nn.Module):
+    def __init__(self, cin, cout, bn2d):
+        super(UNetBlock, self).__init__()
+        self.up_sample = nn.ConvTranspose2d(cin, cin, kernel_size=4, stride=2, padding=1, bias=True)
+        self.conv = nn.Sequential(
+            nn.Conv2d(cin, cin, kernel_size=3, stride=1, padding=1, bias=False), bn2d(cin), nn.ReLU6(inplace=True),
+            nn.Conv2d(cin, cout, kernel_size=3, stride=1, padding=1, bias=False), bn2d(cout), nn.ReLU6(inplace=True)
+        )
+
+    def forward(self, x):
+        x = self.up_sample(x)
+        return self.conv(x)
+
 class ResNet(nn.Module):
 
     def __init__(self, block, layers, num_classes=1000, zero_init_residual=False,
@@ -156,11 +169,11 @@ class ResNet(nn.Module):
         # self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # self.fc = nn.Linear(512 * block.expansion * width_mult, num_classes)
 
-        self.up1 = UNetBlock(1024, 256, norm_layer)
-        self.up2 = UNetBlock(512, 128, norm_layer)
-        self.up3 = UNetBlock(256, 64, norm_layer)
-        self.up4 = UNetBlock(128, 32, norm_layer)
-        self.conv_final = nn.Conv2d(32, 1, kernel_size=1)
+        self.upconv1 = UNetBlock(512 * block.expansion, 256, norm_layer)
+        self.upconv2 = UNetBlock(256, 128, norm_layer)
+        self.upconv3 = UNetBlock(128, 64, norm_layer)
+        self.upconv4 = UNetBlock(64, 32, norm_layer)
+        self.conv_final = nn.Conv2d(32, 1, kernel_size=1)  # Adjust num_classes if needed
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -205,21 +218,21 @@ class ResNet(nn.Module):
 
     def _forward_impl(self, x):
         # Encoder path
+        # See note [TorchScript super()]
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
 
-        x1 = self.layer1(x)
-        x2 = self.layer2(x1)
-        x3 = self.layer3(x2)
-        x4 = self.layer4(x3)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
 
-        # Decoder path with skip connections
-        x = self.up1(x4, x3)
-        x = self.up2(x, x2)
-        x = self.up3(x, x1)
-        x = self.up4(x, self.maxpool(x))
+        x = self.upconv1(x)
+        x = self.upconv2(x)
+        x = self.upconv3(x)
+        x = self.upconv4(x)
         x = self.conv_final(x)
         return torch.sigmoid(x)
 
