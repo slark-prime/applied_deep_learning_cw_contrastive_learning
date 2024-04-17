@@ -13,6 +13,28 @@ def conv1x1(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
 
+class UNetBlock(nn.Module):
+    def __init__(self, cin, cout, norm_layer):
+        """
+        A UNet block with 2x up sampling using transposed convolution and double convolution
+        """
+        super(UNetBlock, self).__init__()
+        self.up_sample = nn.ConvTranspose2d(cin, cin // 2, kernel_size=2, stride=2, padding=0)
+        self.conv = nn.Sequential(
+            nn.Conv2d(cin, cin // 2, kernel_size=3, stride=1, padding=1, bias=False),
+            norm_layer(cin // 2),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(cin // 2, cout, kernel_size=3, stride=1, padding=1, bias=False),
+            norm_layer(cout),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x1, x2):
+        x1 = self.up_sample(x1)
+        x = torch.cat((x1, x2), dim=1)
+        return self.conv(x)
+
+
 class BasicBlock(nn.Module):
     expansion = 1
     __constants__ = ['downsample']
@@ -134,12 +156,11 @@ class ResNet(nn.Module):
         # self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # self.fc = nn.Linear(512 * block.expansion * width_mult, num_classes)
 
-        self.upconv1 = nn.ConvTranspose2d(512 * block.expansion, 256, kernel_size=3, stride=2, padding=1, output_padding=1)
-        self.upconv2 = nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1)
-        self.upconv3 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, output_padding=1)
-        self.upconv4 = nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1)
-        self.upconv5 = nn.ConvTranspose2d(32, 16, kernel_size=3, stride=2, padding=1, output_padding=1)
-        self.conv_final = nn.Conv2d(16, 1, kernel_size=1)
+        self.up1 = UNetBlock(1024, 256, norm_layer)
+        self.up2 = UNetBlock(512, 128, norm_layer)
+        self.up3 = UNetBlock(256, 64, norm_layer)
+        self.up4 = UNetBlock(128, 32, norm_layer)
+        self.conv_final = nn.Conv2d(32, 1, kernel_size=1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -183,22 +204,22 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def _forward_impl(self, x):
-        # See note [TorchScript super()]
+        # Encoder path
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        x1 = self.layer1(x)
+        x2 = self.layer2(x1)
+        x3 = self.layer3(x2)
+        x4 = self.layer4(x3)
 
-        x = self.upconv1(x)
-        x = self.upconv2(x)
-        x = self.upconv3(x)
-        x = self.upconv4(x)
-        x = self.upconv5(x)
+        # Decoder path with skip connections
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        x = self.up4(x, self.maxpool(x))
         x = self.conv_final(x)
         return torch.sigmoid(x)
 
