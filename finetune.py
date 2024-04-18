@@ -49,7 +49,7 @@ def pre_process(images, labels):
 
 def main():
     # Prepare the dataset
-    prepare_dataset(ratio_train=0.7)  # ratio_train can be chosen in [0, 0.85], as test set ratio is fixed at 10%
+    prepare_dataset(ratio_train=0.7)  # ratio_train can be chosen in [0, 0.85], as test set ratio is fixed at 10% #TODO: change training proportion
 
     model = resnet50x1()
     model_dict = model.state_dict()
@@ -81,7 +81,7 @@ def main():
     ## Data loader
     loader_train = H5ImageLoader(DATA_PATH + '/images_train.h5', minibatch_size, DATA_PATH + '/labels_train.h5')
     loader_val = H5ImageLoader(DATA_PATH + '/images_val.h5', 20, DATA_PATH + '/labels_val.h5')
-    # loader_test = H5ImageLoader(DATA_PATH + '/images_test.h5', 20, DATA_PATH + '/labels_test.h5')
+    # loader_test = H5ImageLoader(DATA_PATH + '/images_test.h5', 20, DATA_PATH + '/labels_test.h5') #TODO: Debug
 
     model.to(device)
     criterion = DiceLoss()
@@ -119,11 +119,11 @@ def main():
             total_loss += loss.item()
 
             # Print pixel values for debugging
-            if batch_index % 1000 == 0:  # Adjust the frequency of printing as needed
-                print(f'Epoch {epoch+1}, Batch {batch_index}')
-                print('Sample Image Pixel Values:', images[0, :, :5, :5].cpu().detach().numpy())
-                print('Sample Mask Pixel Values:', masks[0, :, :5, :5].cpu().detach().numpy())
-                print('Sample Output Pixel Values:', outputs[0, :, :5, :5].cpu().detach().sigmoid().numpy())
+            # if batch_index % 1000 == 0:  # Adjust the frequency of printing as needed
+            #     print(f'Epoch {epoch+1}, Batch {batch_index}')
+            #     print('Sample Image Pixel Values:', images[0, :, :5, :5].cpu().detach().numpy())
+            #     print('Sample Mask Pixel Values:', masks[0, :, :5, :5].cpu().detach().numpy())
+            #     print('Sample Output Pixel Values:', outputs[0, :, :5, :5].cpu().detach().sigmoid().numpy())
 
 
         avg_loss = total_loss / len(loader_train)
