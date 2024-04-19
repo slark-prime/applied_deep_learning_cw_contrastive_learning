@@ -51,7 +51,7 @@ def prepare_dataset(ratio_train):
         img_filenames = [f for f in os.listdir(img_dir) if f.endswith('.jpg')]
         num_data = len(img_filenames)
         num_train = int(num_data * ratio_train)
-        num_test = 0.1
+        num_test = int(num_data * 0.1)
         num_val = num_data - num_train - num_test
         print("Dataset Loaded: num_train: %d, num_val: %d, num_test: %d" % (num_train, num_val, num_test))
 
