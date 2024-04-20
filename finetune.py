@@ -49,7 +49,11 @@ def pre_process(images, labels):
 
 def main():
     # Prepare the dataset
-    prepare_dataset(ratio_train=0.7)  # ratio_train can be chosen in [0, 0.85], as test set ratio is fixed at 10% #TODO: change training proportion
+    ratio_train = 0.7
+    prepare_dataset(ratio_train)  # ratio_train can be chosen in [0, 0.85], as test set ratio is fixed at 10% #TODO: change training proportion
+    LOSS_PATH = f'ratio_train={ratio_train:.2f}.csv'
+    with open(LOSS_PATH, 'w') as file:
+      file.write("Epoch, Epoch Average Loss, Validation Loss\n")
 
     model = resnet50x1()
     model_dict = model.state_dict()
@@ -172,6 +176,8 @@ def main():
 
             avg_val_loss = val_loss / len(loader_val)
             print(f'Validation Loss: {avg_val_loss:.4f}')
+            with open(LOSS_PATH, 'a') as file:
+              file.write(f'{epoch}, {avg_loss:.4f}, {avg_val_loss:.4f}\n')
 
     # Save the trained model
     torch.save(model.state_dict(), os.path.join(save_path, 'best_model.pth'))
