@@ -77,8 +77,8 @@ def main():
             start = time.time()
             output = model(frames)
             inf_times.append(time.time() - start)
-            loss = criterion(output, masks.unsqueeze(1))
-            #loss = DiceLoss((F.softmax(output, dim=1).float()), (F.one_hot(masks, 1000).permute(3,4,6,3).float()))
+            masks_resized = F.interpolate(masks.unsqueeze(1).float(), size=output.shape[2:], mode='nearest').long()
+            loss = criterion(output, masks_resized)
             losses.append(loss.item())
             dsc_scores.append(1 - loss.item())
 
