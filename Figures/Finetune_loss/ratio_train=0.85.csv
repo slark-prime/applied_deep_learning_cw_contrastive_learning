@@ -1,4 +1,4 @@
-Epoch, Epoch Average Loss, Validation Loss
+Epoch,Epoch Average Loss,Validation Loss
 0, 0.5741, 0.5462
 1, 0.5676, 0.5426
 2, 0.5632, 0.5440
