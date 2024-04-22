@@ -11,6 +11,6 @@ To run the fine-tuning process, navigate to the directory containing `finetune.p
 ```shell
 python finetune.py
 ```
--0.55 model:.
--0.7 model: https://drive.google.com/file/d/1qjPJJzwyIpabFbCr7Lh1lGlf_1EXuokX/view?usp=sharing
+-0.55 model:https://drive.google.com/file/d/1LiSELPPeFhWa7hJibnQfQRDxP_RLWnOg/view?usp=sharing.
+-0.7 model: https://drive.google.com/file/d/1qjPJJzwyIpabFbCr7Lh1lGlf_1EXuokX/view?usp=sharing.
 -0.85 model: https://drive.google.com/file/d/1-NfKdLrcI_CIAOUoc1ozDn6A4ZRj6JT8/view?usp=sharing.
