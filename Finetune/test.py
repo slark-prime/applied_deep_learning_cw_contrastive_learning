@@ -62,7 +62,7 @@ def main():
 
     ## Data loader
     loader_test = H5ImageLoader(DATA_PATH + '/images_test.h5', 20, DATA_PATH + '/labels_test.h5') 
-
+    accuracies = []
     model.to(device)
     losses = []
     dsc_scores = []
@@ -81,10 +81,16 @@ def main():
             loss = criterion(output, masks_resized)
             losses.append(loss.item())
             dsc_scores.append(1 - loss.item())
+            predicted_masks = torch.argmax(output, dim=1)  
+            correct_pixels = (predicted_masks == masks_resized).sum().item()  
+            total_pixels = masks_resized.numel() 
+            accuracy = correct_pixels / total_pixels  
+            accuracies.append(accuracy)
 
     print(f"Average loss: {sum(losses) / len(losses)}")
     print(f"Average DSC score: {sum(dsc_scores) / len(dsc_scores)}")
     print(f"Average inference time: {sum(inf_times) / len(inf_times)}")
+    print(f"Average accuracy: {sum(accuracies) /(len(accuracies)*20)}")
 
 if __name__ == '__main__':
     main()
