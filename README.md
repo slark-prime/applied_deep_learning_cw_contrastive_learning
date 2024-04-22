@@ -1,4 +1,4 @@
-    The outer folder of the repository includes three main directories:
+The repository includes three main directories:
 
 1. `Finetune`: Contains the code for fine-tuning a pre-existing neural network model, on a Oxford-IIIT Pet Dataset, semantic segmentation task.
 2. `Pretrain`: Houses code related to pretraining a model using a contrastive learning approach SimCLR, which is a method for learning visual representations.
