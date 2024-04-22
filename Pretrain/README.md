@@ -31,3 +31,8 @@ $ python run.py -data ./data/imagenet/train -dataset-name imageNet100 --log-ever
 
 If you want to run it on CPU (for debugging purposes) use the ```--disable-cuda``` option.
 
+
+## Link to pre-trained model
+
+https://drive.google.com/file/d/17GExbaCTayuAPzas9a4Mj6g04vtLLDti/view?usp=share_link
+
