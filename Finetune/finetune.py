@@ -85,7 +85,7 @@ def main():
     ## Data loader
     loader_train = H5ImageLoader(DATA_PATH + '/images_train.h5', minibatch_size, DATA_PATH + '/labels_train.h5')
     loader_val = H5ImageLoader(DATA_PATH + '/images_val.h5', 20, DATA_PATH + '/labels_val.h5')
-    # loader_test = H5ImageLoader(DATA_PATH + '/images_test.h5', 20, DATA_PATH + '/labels_test.h5') #TODO: Debug
+    loader_test = H5ImageLoader(DATA_PATH + '/images_test.h5', 20, DATA_PATH + '/labels_test.h5')
 
     model.to(device)
     criterion = DiceLoss()
